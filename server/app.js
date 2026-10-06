@@ -1,9 +1,13 @@
+import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 
+dotenv.config();
+
 import healthRoutes from './routes/healthRoutes.js';
+import authRoutes from './routes/authRoutes.js';
 import notFoundHandler from './middleware/notFound.js';
 import errorHandler from './middleware/errorHandler.js';
 
@@ -23,6 +27,7 @@ app.get('/', (req, res) => {
 });
 
 app.use('/api', healthRoutes);
+app.use('/api/auth', authRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
