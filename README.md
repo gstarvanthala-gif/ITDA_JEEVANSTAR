@@ -43,6 +43,19 @@ flowchart LR
 
 The investor flow covers demo transactions, server-calculated round-ups, saved risk profiles, virtual allocation, portfolio history, goals, notifications, and advisor messaging. Advisors see assigned clients; admins review mock KYC and manage simulated market data.
 
+## Phased build strategy
+
+Build and validate one phase at a time, in order:
+
+```text
+Phase 0 -> 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
+   -> 11 -> 12 -> 13 -> 14 -> 15 -> 16 -> 17 -> 18 -> 19 -> 20
+```
+
+For a fresh repository, begin with Phase 0 (repository setup) and Phase 1 (backend foundation); validate both before starting Phase 2. This repository already contains the later phases, so continue from the current implementation rather than regenerating completed work.
+
+For each phase, inspect the existing code and tests, implement only that phase, run its focused tests and end-to-end flow, review the result for confirmed issues, then commit the validated changes. Avoid generating the whole application in one pass; incremental work reduces broken imports, duplicate APIs, mismatched schemas, and incomplete features.
+
 ## Local development
 
 1. Install dependencies:
