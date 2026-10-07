@@ -9,24 +9,49 @@ MicroGrow is a competition-ready MERN project that simulates a micro-investment 
 - Database: MongoDB + Mongoose
 - Auth: JWT + bcrypt
 
-## Current status
+## Implemented features
 
-This repository currently includes:
+- JWT registration/login with bcrypt-hashed passwords and investor, advisor, and admin roles
+- Investor workflows for demo banking, transactions, round-ups, risk profiles, virtual allocation and portfolio tracking, goals, notifications, and advisor messages
+- Advisor views for assigned investors and their simulated portfolio, goals, and messages
+- Admin dashboard and reporting, mock KYC review, and simulated market-data management
+- Development-only, idempotent demo-data seeding
 
-- a Vite React frontend scaffold in `client/`
-- an Express backend foundation in `server/` with a health route and centralized error handling
+All financial and identity data is fictional simulation data. The application does not connect to real banks, execute real trades, or provide investment advice.
 
 ## Local development
 
 1. Install dependencies:
    - `npm install`
-   - or `npm run install:all`
-2. Start the backend:
+2. Copy `server/.env.example` to `server/.env` and set a local `MONGODB_URI` and strong `JWT_SECRET`.
+3. Start the backend:
    - `npm --prefix server run dev`
-3. Start the frontend:
+4. Start the frontend:
    - `npm --prefix client run dev`
+
+The client defaults to `http://localhost:5000/api`; set `VITE_API_URL` in `client/.env` only if the API runs elsewhere.
 
 ## Notes
 
 - This project is a simulation and does not connect to real banks or execute real trades.
 - Keep secrets in environment files such as `server/.env` and never commit real credentials.
+
+## Validation
+
+Run the backend integration suite and frontend quality gates with:
+
+```powershell
+npm --prefix server test -- --test-concurrency=1
+npm --prefix client run lint
+npm --prefix client run build
+```
+
+## Demo seed data
+
+The development-only seed script creates or updates the documented fictional demo accounts and related sample data. It does not delete existing records and can be rerun safely.
+
+1. Copy `server/.env.example` to `server/.env` if you have not already.
+2. Set `DEMO_SEED_ENABLED=true` and choose a local-only `DEMO_SEED_PASSWORD` (8–72 UTF-8 bytes) in `server/.env`.
+3. Run `npm --prefix server run seed:demo`.
+
+The accounts are `investor@microgrow.demo`, `investor2@microgrow.demo`, `advisor@microgrow.demo`, and `admin@microgrow.demo`; they share the password configured in `DEMO_SEED_PASSWORD`. The script refuses to run with `NODE_ENV=production`. Never use the demo password outside a local development database.

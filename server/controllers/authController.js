@@ -1,49 +1,51 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
+import { getJwtSecret } from '../config/jwt.js';
 import User from '../models/User.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'microgrow-dev-secret';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
 const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-const signToken = (user) => {
+const signToken = (user, secret) => {
   return jwt.sign(
     {
       id: user._id,
       role: user.role,
       email: user.email,
     },
-    JWT_SECRET,
+    secret,
     { expiresIn: JWT_EXPIRES_IN }
   );
 };
 
 export const registerUser = async (req, res, next) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password } = req.body || {};
 
-    if (!name || !name.trim()) {
+    if (typeof name !== 'string' || !name.trim()) {
       const error = new Error('Name is required');
       error.statusCode = 400;
       throw error;
     }
 
-    if (!email || !isValidEmail(email)) {
+    if (typeof email !== 'string' || !isValidEmail(email.trim())) {
       const error = new Error('A valid email is required');
       error.statusCode = 400;
       throw error;
     }
 
-    if (!password || password.length < 8) {
+    if (typeof password !== 'string' || password.length < 8 || Buffer.byteLength(password, 'utf8') > 72) {
       const error = new Error('Password must be at least 8 characters long');
+      if (typeof password === 'string' && Buffer.byteLength(password, 'utf8') > 72) {
+        error.message = 'Password must not exceed 72 UTF-8 bytes';
+      }
       error.statusCode = 400;
       throw error;
     }
 
-    const allowedRoles = ['investor', 'advisor', 'admin'];
-    const safeRole = role && allowedRoles.includes(role) ? role : 'investor';
+    const jwtSecret = getJwtSecret();
 
     const normalizedEmail = email.toLowerCase().trim();
     const existingUser = await User.findOne({ email: normalizedEmail });
@@ -60,10 +62,10 @@ export const registerUser = async (req, res, next) => {
       name: name.trim(),
       email: normalizedEmail,
       passwordHash,
-      role: safeRole,
+      role: 'investor',
     });
 
-    const token = signToken(user);
+    const token = signToken(user, jwtSecret);
 
     return res.status(201).json({
       success: true,
@@ -73,24 +75,31 @@ export const registerUser = async (req, res, next) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        advisorId: user.advisorId ? String(user.advisorId) : null,
       },
     });
   } catch (error) {
+    if (error.code === 11000 && error.keyPattern?.email) {
+      const duplicateError = new Error('User already exists with this email');
+      duplicateError.statusCode = 409;
+      return next(duplicateError);
+    }
+
     return next(error);
   }
 };
 
 export const loginUser = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const { email, password } = req.body || {};
 
-    if (!email || !isValidEmail(email)) {
+    if (typeof email !== 'string' || !isValidEmail(email.trim())) {
       const error = new Error('A valid email is required');
       error.statusCode = 400;
       throw error;
     }
 
-    if (!password) {
+    if (typeof password !== 'string' || !password) {
       const error = new Error('Password is required');
       error.statusCode = 400;
       throw error;
@@ -106,13 +115,13 @@ export const loginUser = async (req, res, next) => {
 
     const isPasswordMatch = await bcrypt.compare(password, user.passwordHash);
 
-    if (!isPasswordMatch) {
+    if (!isPasswordMatch || !user.isActive) {
       const error = new Error('Invalid email or password');
       error.statusCode = 401;
       throw error;
     }
 
-    const token = signToken(user);
+    const token = signToken(user, getJwtSecret());
 
     return res.status(200).json({
       success: true,
@@ -122,6 +131,7 @@ export const loginUser = async (req, res, next) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        advisorId: user.advisorId ? String(user.advisorId) : null,
       },
     });
   } catch (error) {
@@ -137,6 +147,7 @@ export const getCurrentUser = async (req, res) => {
       name: req.user.name,
       email: req.user.email,
       role: req.user.role,
+      advisorId: req.user.advisorId ? String(req.user.advisorId) : null,
       kycStatus: req.user.kycStatus,
       isActive: req.user.isActive,
     },

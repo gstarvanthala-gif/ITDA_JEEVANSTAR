@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../hooks/useAuth';
 import { getDefaultRoute } from '../../utils/roleUtils';
 
 function RegisterPage() {
@@ -11,7 +11,6 @@ function RegisterPage() {
     name: '',
     email: '',
     password: '',
-    role: 'investor',
   });
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -58,15 +57,6 @@ function RegisterPage() {
         <label>
           <span>Password</span>
           <input type="password" name="password" value={formData.password} onChange={handleChange} required minLength={8} />
-        </label>
-
-        <label>
-          <span>Role</span>
-          <select name="role" value={formData.role} onChange={handleChange}>
-            <option value="investor">Investor</option>
-            <option value="advisor">Advisor</option>
-            <option value="admin">Admin</option>
-          </select>
         </label>
 
         {error && <p className="form-error">{error}</p>}

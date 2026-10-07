@@ -1,36 +1,42 @@
 import jwt from 'jsonwebtoken';
 
+import { getJwtSecret } from '../config/jwt.js';
 import User from '../models/User.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'microgrow-dev-secret';
-
 export const protect = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const error = new Error('Not authorized, token missing');
+    error.statusCode = 401;
+    return next(error);
+  }
+
+  const token = authHeader.slice('Bearer '.length).trim();
+  let decoded;
+
   try {
-    const authHeader = req.headers.authorization;
+    decoded = jwt.verify(token, getJwtSecret());
+  } catch (error) {
+    if (error.statusCode === 500) return next(error);
+    const authError = new Error('Not authorized, invalid token');
+    authError.statusCode = 401;
+    return next(authError);
+  }
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      const error = new Error('Not authorized, token missing');
-      error.statusCode = 401;
-      throw error;
-    }
-
-    const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, JWT_SECRET);
-
+  try {
     const user = await User.findById(decoded.id).select('-passwordHash');
 
-    if (!user) {
-      const error = new Error('User not found for this token');
+    if (!user || !user.isActive) {
+      const error = new Error('Not authorized, user unavailable');
       error.statusCode = 401;
-      throw error;
+      return next(error);
     }
 
     req.user = user;
     return next();
   } catch (error) {
-    const authError = new Error('Not authorized, invalid token');
-    authError.statusCode = 401;
-    return next(authError);
+    return next(error);
   }
 };
 

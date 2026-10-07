@@ -1,28 +1,37 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
-import { AuthProvider, useAuth } from './context/AuthContext';
+import AuthProvider from './context/AuthContext.jsx';
+import { useAuth } from './hooks/useAuth';
 import ProtectedRoute from './components/ProtectedRoute';
 import RoleRoute from './components/RoleRoute';
+import LoadingState from './components/LoadingState';
 import DashboardLayout from './layouts/DashboardLayout';
 import PublicLayout from './layouts/PublicLayout';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdvisorDashboard from './pages/advisor/AdvisorDashboard';
+import AdvisorClientsPage from './pages/advisor/AdvisorClientsPage';
+import AdvisorClientDetailPage from './pages/advisor/AdvisorClientDetailPage';
+import MessagesPage from './pages/MessagesPage';
+import MarketPage from './pages/MarketPage';
 import InvestorDashboard from './pages/investor/InvestorDashboard';
+import GoalsPage from './pages/investor/GoalsPage';
+import AllocationPage from './pages/investor/AllocationPage';
+import RiskAssessmentPage from './pages/investor/RiskAssessmentPage';
+import TransactionsPage from './pages/investor/TransactionsPage';
 import HomePage from './pages/public/HomePage';
 import LoginPage from './pages/public/LoginPage';
 import RegisterPage from './pages/public/RegisterPage';
 import { getDefaultRoute } from './utils/roleUtils';
 import './App.css';
 
+const PortfolioPage = lazy(() => import('./pages/investor/PortfolioPage.jsx'));
+
 function AppRoutes() {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="page-shell centered">
-        <div className="spinner" />
-      </div>
-    );
+    return <LoadingState label="Loading MicroGrow workspace" />;
   }
 
   return (
@@ -41,15 +50,33 @@ function AppRoutes() {
           />
           <Route
             path="/investor/transactions"
-            element={<RoleRoute allowedRoles={['investor']}><InvestorDashboard /></RoleRoute>}
+            element={<RoleRoute allowedRoles={['investor']}><TransactionsPage /></RoleRoute>}
+          />
+          <Route
+            path="/investor/risk"
+            element={<RoleRoute allowedRoles={['investor']}><RiskAssessmentPage /></RoleRoute>}
+          />
+          <Route
+            path="/investor/allocation"
+            element={<RoleRoute allowedRoles={['investor']}><AllocationPage /></RoleRoute>}
           />
           <Route
             path="/investor/portfolio"
-            element={<RoleRoute allowedRoles={['investor']}><InvestorDashboard /></RoleRoute>}
+            element={(
+              <RoleRoute allowedRoles={['investor']}>
+                <Suspense fallback={<LoadingState label="Opening portfolio" />}>
+                  <PortfolioPage />
+                </Suspense>
+              </RoleRoute>
+            )}
           />
           <Route
             path="/investor/goals"
-            element={<RoleRoute allowedRoles={['investor']}><InvestorDashboard /></RoleRoute>}
+            element={<RoleRoute allowedRoles={['investor']}><GoalsPage /></RoleRoute>}
+          />
+          <Route
+            path="/investor/market"
+            element={<RoleRoute allowedRoles={['investor']}><MarketPage /></RoleRoute>}
           />
 
           <Route
@@ -58,11 +85,19 @@ function AppRoutes() {
           />
           <Route
             path="/advisor/clients"
-            element={<RoleRoute allowedRoles={['advisor']}><AdvisorDashboard /></RoleRoute>}
+            element={<RoleRoute allowedRoles={['advisor']}><AdvisorClientsPage /></RoleRoute>}
+          />
+          <Route
+            path="/advisor/clients/:id"
+            element={<RoleRoute allowedRoles={['advisor']}><AdvisorClientDetailPage /></RoleRoute>}
           />
           <Route
             path="/advisor/messages"
-            element={<RoleRoute allowedRoles={['advisor']}><AdvisorDashboard /></RoleRoute>}
+            element={<RoleRoute allowedRoles={['advisor']}><MessagesPage /></RoleRoute>}
+          />
+          <Route
+            path="/investor/messages"
+            element={<RoleRoute allowedRoles={['investor']}><MessagesPage /></RoleRoute>}
           />
 
           <Route
@@ -79,6 +114,18 @@ function AppRoutes() {
           />
           <Route
             path="/admin/kyc"
+            element={<RoleRoute allowedRoles={['admin']}><AdminDashboard /></RoleRoute>}
+          />
+          <Route
+            path="/admin/advisors"
+            element={<RoleRoute allowedRoles={['admin']}><AdminDashboard /></RoleRoute>}
+          />
+          <Route
+            path="/admin/transactions"
+            element={<RoleRoute allowedRoles={['admin']}><AdminDashboard /></RoleRoute>}
+          />
+          <Route
+            path="/admin/notifications"
             element={<RoleRoute allowedRoles={['admin']}><AdminDashboard /></RoleRoute>}
           />
         </Route>

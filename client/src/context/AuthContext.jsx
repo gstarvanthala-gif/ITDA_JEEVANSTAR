@@ -1,12 +1,25 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { authApi, setAuthToken } from '../services/api';
+import AuthContext from './authContextValue.js';
 
-const AuthContext = createContext(null);
+const TOKEN_STORAGE_KEY = 'microgrow_token';
+
+const getStoredToken = () => {
+  const sessionToken = sessionStorage.getItem(TOKEN_STORAGE_KEY);
+  const legacyToken = localStorage.getItem(TOKEN_STORAGE_KEY);
+
+  if (legacyToken) {
+    if (!sessionToken) sessionStorage.setItem(TOKEN_STORAGE_KEY, legacyToken);
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+  }
+
+  return sessionToken || legacyToken || '';
+};
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [token, setTokenState] = useState(() => localStorage.getItem('microgrow_token') || '');
+  const [token, setTokenState] = useState(getStoredToken);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -23,8 +36,8 @@ export function AuthProvider({ children }) {
       try {
         const response = await authApi.me();
         setUser(response.data.user);
-      } catch (error) {
-        localStorage.removeItem('microgrow_token');
+      } catch {
+        sessionStorage.removeItem(TOKEN_STORAGE_KEY);
         setTokenState('');
         setAuthToken(null);
         setUser(null);
@@ -38,11 +51,12 @@ export function AuthProvider({ children }) {
 
   const setToken = (nextToken) => {
     if (nextToken) {
-      localStorage.setItem('microgrow_token', nextToken);
+      sessionStorage.setItem(TOKEN_STORAGE_KEY, nextToken);
     } else {
-      localStorage.removeItem('microgrow_token');
+      sessionStorage.removeItem(TOKEN_STORAGE_KEY);
     }
 
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
     setTokenState(nextToken || '');
     setAuthToken(nextToken || null);
   };
@@ -76,20 +90,9 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const value = useMemo(
-    () => ({ user, token, loading, login, register, logout }),
-    [user, token, loading]
-  );
+  const value = { user, token, loading, login, register, logout };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export function useAuth() {
-  const context = useContext(AuthContext);
-
-  if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
-  }
-
-  return context;
-}
+export default AuthProvider;
