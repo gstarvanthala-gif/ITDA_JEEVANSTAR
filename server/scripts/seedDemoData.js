@@ -131,18 +131,27 @@ const seedMarketData = async () => {
   }
 };
 
-const seedGoal = (userId, name, targetAmount, daysUntilTarget) => upsertOnInsert(
-  Goal,
-  { userId, name: `${SEED_PREFIX} ${name}` },
-  {
+const seedGoal = async (userId, name, targetAmount, daysUntilTarget) => {
+  const legacyName = `${SEED_PREFIX} ${name}`;
+  const legacyGoal = await Goal.findOne({ userId, name: legacyName });
+  const namedGoal = await Goal.findOne({ userId, name });
+
+  if (legacyGoal && !namedGoal) {
+    legacyGoal.name = name;
+    await legacyGoal.save();
+  } else if (legacyGoal && namedGoal) {
+    await Goal.deleteOne({ _id: legacyGoal._id });
+  }
+
+  return upsertOnInsert(Goal, { userId, name }, {
     userId,
-    name: `${SEED_PREFIX} ${name}`,
+    name,
     targetAmount: decimal(targetAmount),
     currentAmount: decimal('0.00'),
     targetDate: new Date(Date.now() + daysUntilTarget * 24 * 60 * 60 * 1000),
     status: 'active',
-  }
-);
+  });
+};
 
 const seedKycRecord = (user, status, reviewerId = null) => upsertOnInsert(
   KYCRecord,
@@ -279,7 +288,10 @@ const seedDemoData = async () => {
 
   const transactionCount = await Transaction.countDocuments({ syncKey: new RegExp(`^${SEED_PREFIX}-`) });
   const roundupCount = await RoundUp.countDocuments({ userId: { $in: [users['investor-1']._id, users['investor-2']._id] } });
-  const goalCount = await Goal.countDocuments({ name: new RegExp(`^${SEED_PREFIX} `) });
+  const goalCount = await Goal.countDocuments({
+    userId: { $in: [users['investor-1']._id, users['investor-2']._id] },
+    name: { $in: ['Bike Goal', 'Learning Fund'] },
+  });
 
   console.log('Demo seed data ensured (safe to rerun):');
   console.log(`- Users: ${demoUsers.length} (1 admin, 1 advisor, 2 investors)`);

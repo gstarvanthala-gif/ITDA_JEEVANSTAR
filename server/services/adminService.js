@@ -145,7 +145,7 @@ export const listAdminMarketData = async (query = {}) => {
     filter.$or = [{ symbol: matcher }, { name: matcher }];
   }
 
-  return pagedResult({
+  const result = await pagedResult({
     model: MarketData,
     filter,
     page,
@@ -153,6 +153,15 @@ export const listAdminMarketData = async (query = {}) => {
     projection: 'symbol name assetType price changePercent source updatedAt',
     sort: { symbol: 1 },
   });
+
+  return {
+    ...result,
+    items: result.items.map((item) => ({
+      ...item,
+      price: item.price.toString(),
+      changePercent: item.changePercent.toString(),
+    })),
+  };
 };
 
 export const listAdminNotifications = async (query = {}) => {

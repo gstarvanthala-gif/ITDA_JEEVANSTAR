@@ -5,6 +5,7 @@ import request from 'supertest';
 
 import app from '../app.js';
 import connectDB from '../config/db.js';
+import MarketData from '../models/MarketData.js';
 import User from '../models/User.js';
 
 const testUserIds = [];
@@ -14,6 +15,7 @@ before(async () => {
 });
 
 after(async () => {
+  await MarketData.deleteOne({ symbol: 'ADMIN-TEST-ASSET' });
   if (testUserIds.length > 0) {
     await User.deleteMany({ _id: { $in: testUserIds } });
   }
@@ -63,4 +65,26 @@ test('admin overview and paginated user list return protected data safely', asyn
   assert.equal(usersResponse.body.pagination.limit, 50);
   assert.ok(usersResponse.body.items.some((user) => user._id === admin.id));
   assert.ok(usersResponse.body.items.every((user) => !Object.hasOwn(user, 'passwordHash')));
+});
+
+test('admin market listing serializes simulated decimal values as strings', async () => {
+  const admin = await createUser('admin');
+  await MarketData.create({
+    symbol: 'ADMIN-TEST-ASSET',
+    name: 'Admin Test Asset',
+    assetType: 'equity',
+    price: mongoose.Types.Decimal128.fromString('42.75'),
+    changePercent: mongoose.Types.Decimal128.fromString('-1.25'),
+  });
+
+  const response = await request(app)
+    .get('/api/admin/market?search=ADMIN-TEST-ASSET')
+    .set(auth(admin.token));
+  const [item] = response.body.items;
+
+  assert.equal(response.status, 200);
+  assert.equal(typeof item.price, 'string');
+  assert.equal(item.price, '42.75');
+  assert.equal(typeof item.changePercent, 'string');
+  assert.equal(item.changePercent, '-1.25');
 });
