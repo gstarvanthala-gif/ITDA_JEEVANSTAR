@@ -19,6 +19,30 @@ MicroGrow is a competition-ready MERN project that simulates a micro-investment 
 
 All financial and identity data is fictional simulation data. The application does not connect to real banks, execute real trades, or provide investment advice.
 
+## Architecture
+
+```mermaid
+flowchart LR
+   subgraph Client[React + Vite]
+      Investor[Investor workflows]
+      Advisor[Advisor workflows]
+      Admin[Admin workflows]
+      ApiClient[Axios service modules]
+      Investor --> ApiClient
+      Advisor --> ApiClient
+      Admin --> ApiClient
+   end
+
+   ApiClient -->|REST / JSON| Routes[Express routes]
+   Routes --> Security[JWT, role checks, validation]
+   Security --> Controllers
+   Controllers --> Services[Business services]
+   Services --> Models[Mongoose models]
+   Models --> MongoDB[(MongoDB)]
+```
+
+The investor flow covers demo transactions, server-calculated round-ups, saved risk profiles, virtual allocation, portfolio history, goals, notifications, and advisor messaging. Advisors see assigned clients; admins review mock KYC and manage simulated market data.
+
 ## Local development
 
 1. Install dependencies:
