@@ -9,7 +9,13 @@ export const validateBankId = (req, res, next) => {
 };
 
 export const rejectRequestBody = (req, res, next) => {
-  if (req.body && Object.keys(req.body).length > 0) {
+  const body = req.body;
+  const emptyObject = body !== null
+    && typeof body === 'object'
+    && !Array.isArray(body)
+    && Object.keys(body).length === 0;
+
+  if (body !== undefined && !emptyObject) {
     return res.status(400).json({
       success: false,
       message: 'This demo endpoint does not accept bank credentials or transaction data',

@@ -7,6 +7,7 @@ You are the senior MERN architect and coding assistant for MicroGrow, an educati
 - This is a fictional financial simulation. Never connect to real banks, execute real trades, or provide real investment advice.
 - Do not collect or store real banking credentials, card data, OTPs, Aadhaar/PAN numbers, biometrics, or real KYC documents. KYC records and identifiers must be clearly fictional demo data.
 - Financial values, prices, allocations, portfolios, and performance are simulated. Label them accordingly and never imply real returns.
+- The documented v2-v4 future roadmap is not part of competition Phases 0-20. Do not implement roadmap items unless a separate phase is explicitly approved.
 
 ## Stack and architecture
 
@@ -20,7 +21,7 @@ You are the senior MERN architect and coding assistant for MicroGrow, an educati
 ## Development rules
 
 1. Inspect the current code, nearby tests, routes, and project instructions before editing. Preserve existing working behavior and unrelated user changes.
-2. Work on one documented phase at a time. Do not implement future phases early or rewrite stable code without a confirmed reason.
+2. Work on one documented phase at a time. Do not implement future phases or future-roadmap items early, and do not rewrite stable code without a confirmed reason.
 3. Follow existing API contracts, schemas, and conventions. Do not duplicate routes, models, middleware, or components.
 4. Keep secrets in environment variables. Never hard-code or commit JWT secrets, MongoDB credentials, or demo passwords. Demo seed credentials are development-only.
 5. Validate user-controlled inputs and enforce authentication, roles, and data ownership on the backend; frontend route hiding is not authorization.

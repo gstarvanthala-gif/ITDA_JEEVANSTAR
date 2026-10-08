@@ -33,26 +33,45 @@ export const submitKYC = async (userId, payload = {}) => {
   if (!demoDocumentType || !['DEMO-ID', 'DEMO-BILL', 'DEMO-UTILITY', 'DEMO-PASSPORT'].includes(demoDocumentType)) {
     throw createHttpError('demoDocumentType must be one of DEMO-ID, DEMO-BILL, DEMO-UTILITY, or DEMO-PASSPORT', 400);
   }
-  if (!demoDocumentNumber || demoDocumentNumber.length > 80) {
-    throw createHttpError('demoDocumentNumber is required and must be shorter than 80 characters', 400);
+  if (!/^DEMO-[A-Z0-9][A-Z0-9-]{0,74}$/i.test(demoDocumentNumber)) {
+    throw createHttpError('demoDocumentNumber must be a fictional DEMO-prefixed value of at most 80 characters', 400);
   }
 
-  const kyc = await KYCRecord.findOneAndUpdate(
-    { userId },
-    {
-      $set: {
-        fullName,
-        demoDocumentType,
-        demoDocumentNumber,
-        status: 'pending',
-        reviewerId: null,
-        reviewNote: '',
-        reviewedAt: null,
-        submittedAt: new Date(),
-      },
-    },
-    { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
-  );
+  const existingRecord = await KYCRecord.findOne({ userId }).select('_id status');
+  if (existingRecord && existingRecord.status !== 'rejected') {
+    throw createHttpError('A KYC submission is already active or verified', 409);
+  }
+
+  const submission = {
+    fullName,
+    demoDocumentType,
+    demoDocumentNumber,
+    status: 'pending',
+    reviewerId: null,
+    reviewNote: '',
+    reviewedAt: null,
+    submittedAt: new Date(),
+  };
+  let kyc;
+
+  if (existingRecord) {
+    kyc = await KYCRecord.findOneAndUpdate(
+      { _id: existingRecord._id, status: 'rejected' },
+      { $set: submission },
+      { new: true, runValidators: true }
+    );
+
+    if (!kyc) {
+      throw createHttpError('A KYC submission is already active or verified', 409);
+    }
+  } else {
+    try {
+      kyc = await KYCRecord.create({ userId, ...submission });
+    } catch (error) {
+      if (error.code !== 11000) throw error;
+      throw createHttpError('A KYC submission is already active or verified', 409);
+    }
+  }
 
   await User.findByIdAndUpdate(userId, { $set: { kycStatus: 'pending' } });
   return kyc;
@@ -60,7 +79,7 @@ export const submitKYC = async (userId, payload = {}) => {
 
 export const getKycStatus = async (userId) => {
   const record = await KYCRecord.findOne({ userId }).sort({ submittedAt: -1 });
-  const currentStatus = record?.status === 'verified' ? 'verified' : record?.status === 'rejected' ? 'rejected' : 'pending';
+  const currentStatus = record?.status || 'not_submitted';
 
   if (record) {
     await User.findByIdAndUpdate(userId, { $set: { kycStatus: currentStatus } });
@@ -98,12 +117,13 @@ export const updateKycStatus = async ({ reviewerId, recordId, status, reviewNote
     throw createHttpError('Invalid KYC record id', 400);
   }
 
-  const record = await KYCRecord.findById(recordId);
-  if (!record) throw createHttpError('KYC record not found', 404);
-
   const reviewer = await User.findById(reviewerId);
   if (!reviewer || reviewer.role !== 'admin') {
     throw createHttpError('Only admins can review KYC records', 403);
+  }
+
+  if (!['verified', 'rejected'].includes(status)) {
+    throw createHttpError('KYC review status is invalid', 400);
   }
 
   const normalizedReview = String(reviewNote || '').trim();
@@ -111,11 +131,23 @@ export const updateKycStatus = async ({ reviewerId, recordId, status, reviewNote
     throw createHttpError('A review note is required', 400);
   }
 
-  record.status = status;
-  record.reviewerId = reviewer._id;
-  record.reviewNote = normalizedReview;
-  record.reviewedAt = new Date();
-  await record.save();
+  const record = await KYCRecord.findOneAndUpdate(
+    { _id: recordId, status: 'pending' },
+    {
+      $set: {
+        status,
+        reviewerId: reviewer._id,
+        reviewNote: normalizedReview,
+        reviewedAt: new Date(),
+      },
+    },
+    { new: true, runValidators: true }
+  );
+  if (!record) {
+    const existingRecord = await KYCRecord.exists({ _id: recordId });
+    if (!existingRecord) throw createHttpError('KYC record not found', 404);
+    throw createHttpError('Only pending KYC submissions can be reviewed', 409);
+  }
 
   await User.findByIdAndUpdate(record.userId, { $set: { kycStatus: status } });
 

@@ -16,14 +16,17 @@ import MessagesPage from './pages/MessagesPage';
 import MarketPage from './pages/MarketPage';
 import InvestorDashboard from './pages/investor/InvestorDashboard';
 import GoalsPage from './pages/investor/GoalsPage';
+import KycPage from './pages/investor/KycPage';
 import AllocationPage from './pages/investor/AllocationPage';
 import RiskAssessmentPage from './pages/investor/RiskAssessmentPage';
 import TransactionsPage from './pages/investor/TransactionsPage';
 import HomePage from './pages/public/HomePage';
 import LoginPage from './pages/public/LoginPage';
 import RegisterPage from './pages/public/RegisterPage';
+import ProfilePage from './pages/ProfilePage';
 import { getDefaultRoute } from './utils/roleUtils';
 import './App.css';
+import './workspace.css';
 
 const PortfolioPage = lazy(() => import('./pages/investor/PortfolioPage.jsx'));
 
@@ -44,6 +47,7 @@ function AppRoutes() {
 
       <Route element={<ProtectedRoute />}>
         <Route element={<DashboardLayout />}>
+          <Route path="/profile" element={<ProfilePage />} />
           <Route
             path="/investor"
             element={<RoleRoute allowedRoles={['investor']}><InvestorDashboard /></RoleRoute>}
@@ -73,6 +77,10 @@ function AppRoutes() {
           <Route
             path="/investor/goals"
             element={<RoleRoute allowedRoles={['investor']}><GoalsPage /></RoleRoute>}
+          />
+          <Route
+            path="/investor/kyc"
+            element={<RoleRoute allowedRoles={['investor']}><KycPage /></RoleRoute>}
           />
           <Route
             path="/investor/market"

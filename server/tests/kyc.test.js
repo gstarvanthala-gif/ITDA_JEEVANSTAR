@@ -44,6 +44,20 @@ const auth = (token) => ({ Authorization: `Bearer ${token}` });
 test('investor can submit KYC and fetch own KYC status', async () => {
   const investor = await createUser({ role: 'investor', name: 'Investor KYC' });
 
+  const initialStatus = await request(app).get('/api/kyc/status').set(auth(investor.token));
+  assert.equal(initialStatus.status, 200);
+  assert.equal(initialStatus.body.kyc.status, 'not_submitted');
+
+  const nonDemoSubmission = await request(app)
+    .post('/api/kyc/submit')
+    .set(auth(investor.token))
+    .send({
+      fullName: 'Investor KYC',
+      demoDocumentType: 'DEMO-ID',
+      demoDocumentNumber: 'REAL-ID-123456',
+    });
+  assert.equal(nonDemoSubmission.status, 400);
+
   const submit = await request(app)
     .post('/api/kyc/submit')
     .set(auth(investor.token))
@@ -62,8 +76,51 @@ test('investor can submit KYC and fetch own KYC status', async () => {
   assert.equal(status.body.kyc.status, 'pending');
 });
 
+test('pending KYC cannot be resubmitted and rejected KYC can be revised', async () => {
+  const investor = await createUser({ role: 'investor', name: 'Investor Resubmission' });
+  const admin = await createUser({ role: 'admin', name: 'KYC Admin' });
+  const submission = {
+    fullName: 'Fictional Demo User',
+    demoDocumentType: 'DEMO-ID',
+    demoDocumentNumber: 'DEMO-ONLY-4321',
+  };
+
+  const first = await request(app)
+    .post('/api/kyc/submit')
+    .set(auth(investor.token))
+    .send(submission);
+  assert.equal(first.status, 201);
+
+  const duplicate = await request(app)
+    .post('/api/kyc/submit')
+    .set(auth(investor.token))
+    .send(submission);
+  assert.equal(duplicate.status, 409);
+
+  const rejection = await request(app)
+    .put(`/api/kyc/${first.body.kyc._id}/reject`)
+    .set(auth(admin.token))
+    .send({ reviewNote: 'Please revise the fictional demo code.' });
+  assert.equal(rejection.status, 200);
+  assert.equal(rejection.body.kyc.reviewerId, admin.id);
+  assert.ok(rejection.body.kyc.reviewedAt);
+
+  const rejectedStatus = await request(app).get('/api/kyc/status').set(auth(investor.token));
+  assert.equal(rejectedStatus.body.kyc.status, 'rejected');
+  assert.equal(rejectedStatus.body.kyc.reviewNote, 'Please revise the fictional demo code.');
+
+  const revised = await request(app)
+    .post('/api/kyc/submit')
+    .set(auth(investor.token))
+    .send({ ...submission, demoDocumentNumber: 'DEMO-ONLY-4322' });
+  assert.equal(revised.status, 201);
+  assert.equal(revised.body.kyc.status, 'pending');
+  assert.equal(revised.body.kyc.demoDocumentNumber, 'DEMO-ONLY-4322');
+});
+
 test('admin can verify or reject KYC, advisor cannot approve', async () => {
   const investor = await createUser({ role: 'investor', name: 'Investor Review' });
+  const rejectedInvestor = await createUser({ role: 'investor', name: 'Investor Rejection' });
   const admin = await createUser({ role: 'admin', name: 'Admin Reviewer' });
   const advisor = await createUser({ role: 'advisor', name: 'Advisor Reviewer' });
 
@@ -86,7 +143,7 @@ test('admin can verify or reject KYC, advisor cannot approve', async () => {
 
   const rejected = await request(app)
     .post('/api/kyc/submit')
-    .set(auth(investor.token))
+    .set(auth(rejectedInvestor.token))
     .send({
       fullName: 'Investor Review 2',
       demoDocumentType: 'DEMO-BILL',

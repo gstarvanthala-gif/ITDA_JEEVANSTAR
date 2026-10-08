@@ -7,6 +7,7 @@ import app from '../app.js';
 import connectDB from '../config/db.js';
 import Allocation from '../models/Allocation.js';
 import BankAccount from '../models/BankAccount.js';
+import MarketData from '../models/MarketData.js';
 import Portfolio from '../models/Portfolio.js';
 import PortfolioHistory from '../models/PortfolioHistory.js';
 import RiskProfile from '../models/RiskProfile.js';
@@ -92,6 +93,22 @@ test('empty investor portfolio has zero value and no holdings or history', async
 
   const history = await request(app).get('/api/portfolio/history').set(auth(investor.token));
   assert.deepEqual(history.body.history, []);
+});
+
+test('portfolio valuation follows current market data prices when market records are updated', async () => {
+  const investor = await createInvestor();
+  await createPortfolioInvestment(investor.token);
+
+  await MarketData.updateOne({ assetType: 'equity' }, { $set: { price: mongoose.Types.Decimal128.fromString('333.33') } });
+  await MarketData.updateOne({ assetType: 'gold' }, { $set: { price: mongoose.Types.Decimal128.fromString('111.11') } });
+  await MarketData.updateOne({ assetType: 'debt' }, { $set: { price: mongoose.Types.Decimal128.fromString('55.55') } });
+
+  const portfolio = await request(app).get('/api/portfolio').set(auth(investor.token));
+  assert.equal(portfolio.status, 200);
+  const prices = portfolio.body.portfolio.holdings.map((holding) => holding.currentPrice).sort();
+  assert.ok(prices.includes('333.33'));
+  assert.ok(prices.includes('111.11'));
+  assert.ok(prices.includes('55.55'));
 });
 
 test('portfolio endpoints summarize virtual holdings, deterministic value, and persisted history', async () => {

@@ -22,6 +22,10 @@ function TransactionsPage() {
   const [roundUpHistory, setRoundUpHistory] = useState([]);
   const [roundUpSummary, setRoundUpSummary] = useState(null);
   const [roundUpView, setRoundUpView] = useState('pending');
+  const [transactionSearch, setTransactionSearch] = useState('');
+  const [transactionCategory, setTransactionCategory] = useState('all');
+  const [transactionDateFrom, setTransactionDateFrom] = useState('');
+  const [transactionDateTo, setTransactionDateTo] = useState('');
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState('');
@@ -121,6 +125,19 @@ function TransactionsPage() {
   const handleInvestRoundUp = (roundUpId) =>
     runAction(() => roundUpApi.invest(roundUpId), 'Round-up added to virtual savings.');
 
+  const transactionCategories = [...new Set(transactions.map((transaction) => transaction.category).filter(Boolean))].sort();
+  const visibleTransactions = transactions.filter((transaction) => {
+    const search = transactionSearch.trim().toLowerCase();
+    const matchesSearch = !search
+      || transaction.merchant.toLowerCase().includes(search)
+      || transaction.category.toLowerCase().includes(search);
+    const transactionDate = new Date(transaction.transactionDate).toISOString().slice(0, 10);
+    return matchesSearch
+      && (transactionCategory === 'all' || transaction.category === transactionCategory)
+      && (!transactionDateFrom || transactionDate >= transactionDateFrom)
+      && (!transactionDateTo || transactionDate <= transactionDateTo);
+  });
+
   if (loading) {
     return <LoadingState label="Loading simulated transactions" />;
   }
@@ -177,7 +194,7 @@ function TransactionsPage() {
             <p className="eyebrow">Fictional transaction feed</p>
             <h3 id="transactions-title">Recent activity</h3>
           </div>
-          <span>{transactions.length} transactions</span>
+          <span>{visibleTransactions.length} of {transactions.length} transactions</span>
         </div>
 
         {transactions.length === 0 ? (
@@ -187,7 +204,25 @@ function TransactionsPage() {
               : 'Connect the demo bank to view sample transactions.'}
           </p>
         ) : (
-          <div className="transactions-table-wrap">
+          <>
+            <div className="transactions-filter-bar" aria-label="Filter transactions">
+              <label className="transaction-search-field">
+                <span>Search</span>
+                <input type="search" value={transactionSearch} onChange={(event) => setTransactionSearch(event.target.value)} placeholder="Merchant or category" />
+              </label>
+              <label>
+                <span>Category</span>
+                <select value={transactionCategory} onChange={(event) => setTransactionCategory(event.target.value)}>
+                  <option value="all">All categories</option>
+                  {transactionCategories.map((category) => <option key={category} value={category}>{category}</option>)}
+                </select>
+              </label>
+              <label><span>From</span><input type="date" value={transactionDateFrom} onChange={(event) => setTransactionDateFrom(event.target.value)} /></label>
+              <label><span>To</span><input type="date" value={transactionDateTo} onChange={(event) => setTransactionDateTo(event.target.value)} /></label>
+            </div>
+            {visibleTransactions.length === 0 ? (
+              <p className="empty-state">No transactions match these filters.</p>
+            ) : <div className="transactions-table-wrap">
             <table className="transactions-table">
               <thead>
                 <tr>
@@ -199,7 +234,7 @@ function TransactionsPage() {
                 </tr>
               </thead>
               <tbody>
-                {transactions.map((transaction) => (
+                {visibleTransactions.map((transaction) => (
                   <tr key={transaction._id}>
                     <td>{transaction.merchant}</td>
                     <td className="capitalize">{transaction.category}</td>
@@ -210,11 +245,12 @@ function TransactionsPage() {
                 ))}
               </tbody>
             </table>
-          </div>
+            </div>}
+          </>
         )}
       </section>
 
-      <section className="roundups-section" aria-labelledby="roundups-title">
+      <section className="roundups-section" id="roundups" aria-labelledby="roundups-title">
         <div className="roundups-heading">
           <div>
             <p className="eyebrow">Virtual savings</p>

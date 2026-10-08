@@ -9,6 +9,35 @@ const createHttpError = (message, statusCode) => {
 };
 
 const toDecimal128 = (amount) => mongoose.Types.Decimal128.fromString(String(amount));
+const normalizeSymbol = (symbol) => {
+  if (typeof symbol !== 'string') throw createHttpError('symbol must be a string', 400);
+  const normalized = symbol.trim().toUpperCase();
+  if (!/^[A-Z0-9][A-Z0-9._-]{0,19}$/.test(normalized)) {
+    throw createHttpError('symbol must be 1-20 letters, numbers, dots, underscores, or hyphens', 400);
+  }
+  return normalized;
+};
+
+const validateName = (name) => {
+  if (typeof name !== 'string' || !name.trim() || name.trim().length > 80) {
+    throw createHttpError('name must be a non-empty string of at most 80 characters', 400);
+  }
+  return name.trim();
+};
+
+const validatePrice = (price) => {
+  if (typeof price !== 'number' || !Number.isFinite(price) || price <= 0) {
+    throw createHttpError('price must be a positive number', 400);
+  }
+  return toDecimal128(price);
+};
+
+const validateChangePercent = (changePercent) => {
+  if (typeof changePercent !== 'number' || !Number.isFinite(changePercent)) {
+    throw createHttpError('changePercent must be a finite number', 400);
+  }
+  return toDecimal128(changePercent);
+};
 
 const seedMarketData = async () => {
   const seedItems = [
@@ -72,31 +101,28 @@ export const getMarketItem = async (symbol) => {
 
 export const createMarketItem = async (payload) => {
   const { symbol, name, assetType, price, changePercent } = payload || {};
-
-  if (typeof symbol !== 'string' || !symbol.trim()) {
-    throw createHttpError('symbol is required', 400);
-  }
-  if (typeof name !== 'string' || !name.trim()) {
-    throw createHttpError('name is required', 400);
-  }
+  const normalizedSymbol = normalizeSymbol(symbol);
+  const normalizedName = validateName(name);
   if (!['equity', 'gold', 'debt'].includes(assetType)) {
     throw createHttpError('assetType must be equity, gold, or debt', 400);
   }
-  if (typeof price !== 'number' || !Number.isFinite(price) || price <= 0) {
-    throw createHttpError('price must be a positive number', 400);
-  }
-  if (typeof changePercent !== 'number' || !Number.isFinite(changePercent)) {
-    throw createHttpError('changePercent must be a finite number', 400);
-  }
+  const normalizedPrice = validatePrice(price);
+  const normalizedChangePercent = validateChangePercent(changePercent);
 
-  const item = await MarketData.create({
-    symbol: symbol.trim().toUpperCase(),
-    name: name.trim(),
-    assetType,
-    price: toDecimal128(price),
-    changePercent: toDecimal128(changePercent),
-    source: 'simulation',
-  });
+  let item;
+  try {
+    item = await MarketData.create({
+      symbol: normalizedSymbol,
+      name: normalizedName,
+      assetType,
+      price: normalizedPrice,
+      changePercent: normalizedChangePercent,
+      source: 'simulation',
+    });
+  } catch (error) {
+    if (error.code === 11000) throw createHttpError('A market asset with this symbol already exists', 409);
+    throw error;
+  }
 
   return {
     _id: item._id,
@@ -112,26 +138,31 @@ export const createMarketItem = async (payload) => {
 };
 
 export const updateMarketItem = async (marketId, payload) => {
+  if (!mongoose.isValidObjectId(marketId)) throw createHttpError('Valid market asset ID is required', 400);
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw createHttpError('A market asset update is required', 400);
+  }
+
   const item = await MarketData.findById(marketId);
   if (!item) throw createHttpError('Market item not found', 404);
 
-  if (payload.symbol) item.symbol = payload.symbol.trim().toUpperCase();
-  if (payload.name) item.name = payload.name.trim();
-  if (payload.assetType) item.assetType = payload.assetType;
-  if (typeof payload.price === 'number') item.price = toDecimal128(payload.price);
-  if (typeof payload.changePercent === 'number') item.changePercent = toDecimal128(payload.changePercent);
+  if (Object.hasOwn(payload, 'symbol')) item.symbol = normalizeSymbol(payload.symbol);
+  if (Object.hasOwn(payload, 'name')) item.name = validateName(payload.name);
+  if (Object.hasOwn(payload, 'assetType')) {
+    if (!['equity', 'gold', 'debt'].includes(payload.assetType)) {
+      throw createHttpError('assetType must be equity, gold, or debt', 400);
+    }
+    item.assetType = payload.assetType;
+  }
+  if (Object.hasOwn(payload, 'price')) item.price = validatePrice(payload.price);
+  if (Object.hasOwn(payload, 'changePercent')) item.changePercent = validateChangePercent(payload.changePercent);
 
-  if (item.symbol.length === 0 || item.name.length === 0) {
-    throw createHttpError('symbol and name are required', 400);
+  try {
+    await item.save();
+  } catch (error) {
+    if (error.code === 11000) throw createHttpError('A market asset with this symbol already exists', 409);
+    throw error;
   }
-  if (!['equity', 'gold', 'debt'].includes(item.assetType)) {
-    throw createHttpError('assetType must be equity, gold, or debt', 400);
-  }
-  if (Number(item.price) <= 0) {
-    throw createHttpError('price must be a positive number', 400);
-  }
-
-  await item.save();
 
   return {
     _id: item._id,
@@ -147,6 +178,7 @@ export const updateMarketItem = async (marketId, payload) => {
 };
 
 export const deleteMarketItem = async (marketId) => {
+  if (!mongoose.isValidObjectId(marketId)) throw createHttpError('Valid market asset ID is required', 400);
   const item = await MarketData.findByIdAndDelete(marketId);
   if (!item) throw createHttpError('Market item not found', 404);
   return { id: item._id, message: 'Market data deleted' };

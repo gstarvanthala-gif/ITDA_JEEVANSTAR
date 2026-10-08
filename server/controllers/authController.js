@@ -1,12 +1,14 @@
+import 'dotenv/config';
+
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
 import { getJwtSecret } from '../config/jwt.js';
 import User from '../models/User.js';
 
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '1h';
 
-const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+const isValidEmail = (email) => email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
 const signToken = (user, secret) => {
   return jwt.sign(
@@ -14,9 +16,10 @@ const signToken = (user, secret) => {
       id: user._id,
       role: user.role,
       email: user.email,
+      tokenVersion: user.tokenVersion ?? 0,
     },
     secret,
-    { expiresIn: JWT_EXPIRES_IN }
+    { expiresIn: JWT_EXPIRES_IN, algorithm: 'HS256' }
   );
 };
 
@@ -24,8 +27,8 @@ export const registerUser = async (req, res, next) => {
   try {
     const { name, email, password } = req.body || {};
 
-    if (typeof name !== 'string' || !name.trim()) {
-      const error = new Error('Name is required');
+    if (typeof name !== 'string' || !name.trim() || name.trim().length > 120) {
+      const error = new Error('Name is required and must be at most 120 characters');
       error.statusCode = 400;
       throw error;
     }
@@ -37,7 +40,7 @@ export const registerUser = async (req, res, next) => {
     }
 
     if (typeof password !== 'string' || password.length < 8 || Buffer.byteLength(password, 'utf8') > 72) {
-      const error = new Error('Password must be at least 8 characters long');
+      const error = new Error('Password must be 8-72 UTF-8 bytes');
       if (typeof password === 'string' && Buffer.byteLength(password, 'utf8') > 72) {
         error.message = 'Password must not exceed 72 UTF-8 bytes';
       }
@@ -99,8 +102,8 @@ export const loginUser = async (req, res, next) => {
       throw error;
     }
 
-    if (typeof password !== 'string' || !password) {
-      const error = new Error('Password is required');
+    if (typeof password !== 'string' || !password || Buffer.byteLength(password, 'utf8') > 72) {
+      const error = new Error('Password is required and must not exceed 72 UTF-8 bytes');
       error.statusCode = 400;
       throw error;
     }
@@ -154,9 +157,16 @@ export const getCurrentUser = async (req, res) => {
   });
 };
 
-export const logoutUser = async (req, res) => {
-  return res.status(200).json({
-    success: true,
-    message: 'Logged out successfully',
-  });
+export const logoutUser = async (req, res, next) => {
+  try {
+    const result = await User.updateOne({ _id: req.user._id }, { $inc: { tokenVersion: 1 } });
+    if (result.matchedCount !== 1) {
+      const error = new Error('User session is no longer available');
+      error.statusCode = 401;
+      throw error;
+    }
+    return res.status(200).json({ success: true, message: 'Logged out successfully' });
+  } catch (error) {
+    return next(error);
+  }
 };

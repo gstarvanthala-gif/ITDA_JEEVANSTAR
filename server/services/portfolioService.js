@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 
+import MarketData from '../models/MarketData.js';
 import Portfolio from '../models/Portfolio.js';
 import PortfolioHistory from '../models/PortfolioHistory.js';
 import RoundUp from '../models/RoundUp.js';
@@ -60,7 +61,31 @@ const makeEmptyPortfolio = (userId, asOf) => ({
   simulationLabel: 'DEMO simulation values',
 });
 
-export const calculatePortfolioSnapshot = (userId, executions, asOf = new Date()) => {
+const resolveMarketPricePaise = (assetType, asOf, marketPrices = {}) => {
+  const marketPrice = marketPrices[assetType];
+  if (typeof marketPrice === 'number' && Number.isFinite(marketPrice) && marketPrice > 0) {
+    return Math.round(marketPrice * 100);
+  }
+  return simulatePricePaise(assetType, asOf);
+};
+
+const getCurrentMarketPricesByAssetType = async () => {
+  const items = await MarketData.find({
+    assetType: { $in: ['equity', 'gold', 'debt'] },
+  }).sort({ updatedAt: 1 }).lean();
+
+  const marketPrices = {};
+  for (const item of items) {
+    if (!item || !['equity', 'gold', 'debt'].includes(item.assetType)) continue;
+    const nextPrice = Number(item.price);
+    if (!Number.isFinite(nextPrice) || nextPrice <= 0) continue;
+    marketPrices[item.assetType] = nextPrice;
+  }
+
+  return marketPrices;
+};
+
+export const calculatePortfolioSnapshot = (userId, executions, asOf = new Date(), marketPrices = {}) => {
   const assets = Object.fromEntries(
     Object.keys(SIMULATED_ASSETS).map((assetType) => [
       assetType,
@@ -86,7 +111,7 @@ export const calculatePortfolioSnapshot = (userId, executions, asOf = new Date()
   for (const [assetType, position] of Object.entries(assets)) {
     if (position.investedPaise === 0n) continue;
 
-    const currentPricePaise = simulatePricePaise(assetType, asOf);
+    const currentPricePaise = resolveMarketPricePaise(assetType, asOf, marketPrices);
     const currentValuePaise = BigInt(Math.round(position.units * currentPricePaise));
     const investedAmount = Number(position.investedPaise) / 100;
     const currentValue = Number(currentValuePaise) / 100;
@@ -190,7 +215,8 @@ const makeHistorySnapshots = (userId, executions, asOf) => {
 
 export const getPortfolioSnapshot = async (userId, asOf = new Date()) => {
   const executions = await listAllocationExecutions(userId);
-  const snapshot = calculatePortfolioSnapshot(userId, executions, asOf);
+  const marketPrices = await getCurrentMarketPricesByAssetType();
+  const snapshot = calculatePortfolioSnapshot(userId, executions, asOf, marketPrices);
   await persistPortfolioSnapshot(snapshot);
   return snapshot;
 };

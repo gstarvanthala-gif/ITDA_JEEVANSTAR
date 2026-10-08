@@ -176,6 +176,13 @@ test('demo sync rejects request data and requires a connected demo bank', async 
     .send({ password: 'not-collected' });
   assert.equal(credentialsResponse.status, 400);
 
+  const nullTransactionPayload = await request(app)
+    .post('/api/transactions/sync')
+    .set(authorized(investor.token))
+    .set('Content-Type', 'application/json')
+    .send('null');
+  assert.equal(nullTransactionPayload.status, 400);
+
   const syncResponse = await request(app)
     .post('/api/transactions/sync')
     .set(authorized(investor.token));

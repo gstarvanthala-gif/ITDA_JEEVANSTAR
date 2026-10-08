@@ -69,6 +69,7 @@ function PortfolioPage() {
   }
 
   const profitLoss = Number(summary?.totalProfitLoss || 0);
+  const profitLossPercent = Number(summary?.profitLossPercent || 0);
 
   return (
     <section className="dashboard-page portfolio-page">
@@ -98,6 +99,9 @@ function PortfolioPage() {
           <strong className={profitLoss >= 0 ? 'pnl-positive' : 'pnl-negative'}>
             {profitLoss > 0 ? '+' : ''}{formatCurrency(profitLoss)}
           </strong>
+          <small className={profitLoss >= 0 ? 'pnl-positive' : 'pnl-negative'}>
+            {profitLossPercent > 0 ? '+' : ''}{profitLossPercent.toFixed(2)}% simulated performance
+          </small>
         </article>
       </div>
 
@@ -144,6 +148,7 @@ function PortfolioPage() {
                     <th scope="col">Average price</th>
                     <th scope="col">Simulated price</th>
                     <th scope="col">Current value</th>
+                    <th scope="col">Profit / loss</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -155,6 +160,10 @@ function PortfolioPage() {
                       <td>{formatCurrency(holding.averagePrice)}</td>
                       <td>{formatCurrency(holding.currentPrice)}</td>
                       <td>{formatCurrency(holding.currentValue)}</td>
+                      <td className={Number(holding.currentValue) >= Number(holding.investedAmount) ? 'pnl-positive' : 'pnl-negative'}>
+                        {Number(holding.currentValue) - Number(holding.investedAmount) > 0 ? '+' : ''}
+                        {formatCurrency(Number(holding.currentValue) - Number(holding.investedAmount))}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

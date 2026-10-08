@@ -16,7 +16,11 @@ const createHttpError = (message, statusCode) => {
   return error;
 };
 
-export const createNotification = async ({ userId, title, message, type, eventKey, metadata = {} }) => {
+export const createNotification = async (payload = {}) => {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw createHttpError('Notification request is invalid', 400);
+  }
+  const { userId, title, message, type, eventKey, metadata = {} } = payload;
   if (!mongoose.isValidObjectId(userId)) {
     throw createHttpError('Invalid notification user id', 400);
   }
@@ -31,6 +35,9 @@ export const createNotification = async ({ userId, title, message, type, eventKe
   }
   if (typeof eventKey !== 'string' || !eventKey.trim() || eventKey.trim().length > 200) {
     throw createHttpError('Notification event key is invalid', 400);
+  }
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    throw createHttpError('Notification metadata is invalid', 400);
   }
 
   const notificationData = {

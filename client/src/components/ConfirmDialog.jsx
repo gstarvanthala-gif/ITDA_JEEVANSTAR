@@ -4,6 +4,7 @@ function ConfirmDialog({
   open,
   title,
   message,
+  children,
   confirmLabel = 'Confirm',
   busy = false,
   onConfirm,
@@ -34,6 +35,7 @@ function ConfirmDialog({
         <p className="eyebrow">Please confirm</p>
         <h2 id="confirm-dialog-title">{title}</h2>
         <p id="confirm-dialog-message">{message}</p>
+        {children}
         <div className="confirm-dialog-actions">
           <button type="button" className="secondary-button" onClick={onCancel} disabled={busy}>Cancel</button>
           <button type="button" className="primary-button destructive-button" onClick={onConfirm} disabled={busy}>

@@ -1,5 +1,7 @@
 import axios from 'axios';
 
+const kycReviewActions = { verified: 'verify', rejected: 'reject' };
+
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
   headers: {
@@ -66,6 +68,11 @@ export const portfolioApi = {
   getSummary: () => api.get('/portfolio/summary'),
 };
 
+export const kycApi = {
+  getStatus: () => api.get('/kyc/status'),
+  submit: (payload) => api.post('/kyc/submit', payload),
+};
+
 export const goalsApi = {
   getAll: () => api.get('/goals'),
   get: (goalId) => api.get(`/goals/${goalId}`),
@@ -104,12 +111,18 @@ export const marketApi = {
 export const adminApi = {
   getOverview: () => api.get('/admin/overview'),
   getUsers: (params) => api.get('/admin/users', { params }),
+  getUserDetails: (id) => api.get(`/admin/users/${id}`),
   getAdvisors: (params) => api.get('/admin/advisors', { params }),
   getTransactions: (params) => api.get('/admin/transactions', { params }),
   getKycRecords: (params) => api.get('/admin/kyc', { params }),
   getMarketData: (params) => api.get('/admin/market', { params }),
   getNotifications: (params) => api.get('/admin/notifications', { params }),
-  reviewKyc: (id, status, reviewNote = '') => api.put(`/kyc/${id}/${status}`, { reviewNote }),
+  reviewKyc: (id, status, reviewNote) => api.put(`/kyc/${id}/${kycReviewActions[status] || status}`, { reviewNote }),
+  setUserStatus: (id, isActive) => api.put(`/admin/users/${id}/status`, { isActive }),
+  assignAdvisor: (investorId, advisorId) => api.put(`/admin/investors/${investorId}/advisor`, { advisorId }),
+  removeAdvisor: (investorId) => api.delete(`/admin/investors/${investorId}/advisor`),
+  createNotification: (payload) => api.post('/admin/notifications', payload),
+  deleteNotification: (id) => api.delete(`/admin/notifications/${id}`),
 };
 
 export default api;

@@ -71,6 +71,7 @@ The client defaults to `http://localhost:5000/api`; set `VITE_API_URL` in `clien
 ## Notes
 
 - This project is a simulation and does not connect to real banks or execute real trades.
+- The v2-v4 roadmap in the project documentation is future vision only and is outside competition Phases 0-20 unless separately approved.
 - Keep secrets in environment files such as `server/.env` and never commit real credentials.
 
 ## Validation

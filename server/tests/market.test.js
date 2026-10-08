@@ -16,7 +16,7 @@ before(async () => {
 
 after(async () => {
   if (testUserIds.length > 0) {
-    await MarketData.deleteMany({ symbol: { $in: ['DEMO-EQ', 'DEMO-GOLD', 'DEMO-DEBT', 'TEST-AAA'] } });
+    await MarketData.deleteMany({ symbol: 'TEST-AAA' });
     await User.deleteMany({ _id: { $in: testUserIds } });
   }
   await mongoose.connection.close();
@@ -74,6 +74,23 @@ test('admin can create, update, and delete market data records', async () => {
     .send({ price: 105.5, changePercent: 5.75 });
   assert.equal(update.status, 200);
   assert.equal(String(update.body.marketItem.price), '105.5');
+
+  const invalidSymbolUpdate = await request(app)
+    .put(`/api/market/${create.body.marketItem._id}`)
+    .set(auth(admin.token))
+    .send({ symbol: 'BAD SYMBOL' });
+  const invalidPriceUpdate = await request(app)
+    .put(`/api/market/${create.body.marketItem._id}`)
+    .set(auth(admin.token))
+    .send({ price: 0 });
+  assert.equal(invalidSymbolUpdate.status, 400);
+  assert.equal(invalidPriceUpdate.status, 400);
+
+  const invalidCreate = await request(app)
+    .post('/api/market')
+    .set(auth(admin.token))
+    .send({ symbol: 'BAD SYMBOL', name: 'Invalid Asset', assetType: 'equity', price: -5, changePercent: 0 });
+  assert.equal(invalidCreate.status, 400);
 
   const remove = await request(app)
     .delete(`/api/market/${create.body.marketItem._id}`)

@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
 
 import { getJwtSecret } from '../config/jwt.js';
 import User from '../models/User.js';
@@ -16,7 +17,7 @@ export const protect = async (req, res, next) => {
   let decoded;
 
   try {
-    decoded = jwt.verify(token, getJwtSecret());
+    decoded = jwt.verify(token, getJwtSecret(), { algorithms: ['HS256'] });
   } catch (error) {
     if (error.statusCode === 500) return next(error);
     const authError = new Error('Not authorized, invalid token');
@@ -24,10 +25,19 @@ export const protect = async (req, res, next) => {
     return next(authError);
   }
 
+  if (!decoded || !mongoose.isValidObjectId(decoded.id)
+    || (decoded.tokenVersion !== undefined && !Number.isInteger(decoded.tokenVersion))) {
+    const error = new Error('Not authorized, invalid token');
+    error.statusCode = 401;
+    return next(error);
+  }
+
   try {
     const user = await User.findById(decoded.id).select('-passwordHash');
 
-    if (!user || !user.isActive) {
+    const tokenVersion = decoded.tokenVersion ?? 0;
+    const currentTokenVersion = user?.tokenVersion ?? 0;
+    if (!user || !user.isActive || tokenVersion !== currentTokenVersion) {
       const error = new Error('Not authorized, user unavailable');
       error.statusCode = 401;
       return next(error);

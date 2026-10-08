@@ -13,8 +13,9 @@ export const validateKycSubmission = (req, res, next) => {
     return res.status(400).json({ success: false, message: 'demoDocumentType must be one of DEMO-ID, DEMO-BILL, DEMO-UTILITY, or DEMO-PASSPORT' });
   }
 
-  if (typeof demoDocumentNumber !== 'string' || !demoDocumentNumber.trim() || demoDocumentNumber.trim().length > 80) {
-    return res.status(400).json({ success: false, message: 'demoDocumentNumber is required and must be shorter than 80 characters' });
+  if (typeof demoDocumentNumber !== 'string'
+    || !/^DEMO-[A-Z0-9][A-Z0-9-]{0,74}$/i.test(demoDocumentNumber.trim())) {
+    return res.status(400).json({ success: false, message: 'demoDocumentNumber must be a fictional DEMO-prefixed value of at most 80 characters' });
   }
 
   req.body.fullName = fullName.trim();

@@ -42,12 +42,18 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    tokenVersion: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
   },
   {
     timestamps: true,
     toJSON: {
       transform: (doc, ret) => {
         delete ret.passwordHash;
+        delete ret.tokenVersion;
         delete ret.__v;
         return ret;
       },

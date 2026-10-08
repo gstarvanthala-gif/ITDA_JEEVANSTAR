@@ -6,12 +6,13 @@ import {
   getCurrentUser,
   logoutUser,
 } from '../controllers/authController.js';
+import { loginRateLimiter } from '../middleware/authRateLimit.js';
 import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
 
 router.post('/register', registerUser);
-router.post('/login', loginUser);
+router.post('/login', loginRateLimiter, loginUser);
 router.get('/me', protect, getCurrentUser);
 router.post('/logout', protect, logoutUser);
 

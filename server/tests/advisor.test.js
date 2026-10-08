@@ -91,11 +91,24 @@ test('advisor endpoints require advisor authorization', async () => {
 });
 
 test('advisor sees only assigned active investors with read-only profile, portfolio, history, and goals', async () => {
+  const admin = await createUser({ role: 'admin', name: 'Assignment Admin' });
   const advisor = await createUser({ role: 'advisor', name: 'Assigned Advisor' });
   const otherAdvisor = await createUser({ role: 'advisor', name: 'Other Advisor' });
-  const assigned = await createUser({ role: 'investor', advisorId: advisor.id, name: 'Assigned Investor' });
-  const otherAssigned = await createUser({ role: 'investor', advisorId: otherAdvisor.id, name: 'Private Investor' });
+  const assigned = await createUser({ role: 'investor', name: 'Assigned Investor' });
+  const otherAssigned = await createUser({ role: 'investor', name: 'Private Investor' });
   const unassigned = await createUser({ role: 'investor', name: 'Unassigned Investor' });
+
+  await request(app)
+    .put(`/api/admin/investors/${assigned.id}/advisor`)
+    .set(auth(admin.token))
+    .send({ advisorId: advisor.id })
+    .expect(200);
+  await request(app)
+    .put(`/api/admin/investors/${otherAssigned.id}/advisor`)
+    .set(auth(admin.token))
+    .send({ advisorId: otherAdvisor.id })
+    .expect(200);
+
   await addInvestorData(assigned);
   await addInvestorData(otherAssigned);
 
