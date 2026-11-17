@@ -21,8 +21,11 @@ const amountToPaise = (value) => {
   return BigInt(match[1]) * 100n + BigInt((match[2] || '').padEnd(2, '0') || '0');
 };
 
-const paiseToAmount = (value) =>
-  `${value / 100n}.${String(value % 100n).padStart(2, '0')}`;
+const paiseToAmount = (value) => {
+  const isNegative = value < 0n;
+  const absoluteValue = isNegative ? -value : value;
+  return `${isNegative ? '-' : ''}${absoluteValue / 100n}.${String(absoluteValue % 100n).padStart(2, '0')}`;
+};
 
 const toDecimal128 = (value) => mongoose.Types.Decimal128.fromString(value);
 

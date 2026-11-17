@@ -14,7 +14,7 @@ import RiskProfile from '../models/RiskProfile.js';
 import RoundUp from '../models/RoundUp.js';
 import Transaction from '../models/Transaction.js';
 import User from '../models/User.js';
-import { simulatePricePaise } from '../services/portfolioService.js';
+import { calculatePortfolioSnapshot, simulatePricePaise } from '../services/portfolioService.js';
 
 const testUserIds = [];
 
@@ -80,6 +80,25 @@ test('simulated asset prices are deterministic for a given date', () => {
     simulatePricePaise('equity', new Date('2026-09-01T12:00:00.000Z')),
     simulatePricePaise('equity', date)
   );
+});
+
+test('negative portfolio returns use valid decimal amounts', () => {
+  const snapshot = calculatePortfolioSnapshot(
+    new mongoose.Types.ObjectId(),
+    [{
+      allocationExecution: {
+        executedAt: new Date('2026-01-01T00:00:00.000Z'),
+        equityAmount: mongoose.Types.Decimal128.fromString('1.00'),
+        goldAmount: mongoose.Types.Decimal128.fromString('0.00'),
+        debtAmount: mongoose.Types.Decimal128.fromString('0.00'),
+      },
+    }],
+    new Date('2026-01-01T23:59:59.999Z'),
+    { equity: 99 }
+  );
+
+  assert.equal(snapshot.totalProfitLoss, '-0.01');
+  assert.doesNotThrow(() => mongoose.Types.Decimal128.fromString(snapshot.totalProfitLoss));
 });
 
 test('empty investor portfolio has zero value and no holdings or history', async () => {
